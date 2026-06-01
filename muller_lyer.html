@@ -1,0 +1,136 @@
+/**
+ * jsPsych CSV Data Saver via Google Apps Script (English/ASCII Code Version)
+ * 
+ * This script parses CSV data sent from jsPsych and appends it to Google Sheets.
+ * All internal messages, comments, and logs are written in plain English to avoid
+ * encoding errors during deployment, while keeping full capability of saving multilingual text.
+ */
+
+// --- Configuration Area ---
+// If you want to use a specific spreadsheet, enter its ID below.
+// If left empty (""), the sheet bound to this script will be used.
+const SPREADSHEET_ID = "1e33xKXrgxG4xRUodl1GVRvznjCO2JIWlRh3bnYANR2Y"; 
+// Name of the destination sheet
+const SHEET_NAME = "Sheet1"; 
+// --------------------------
+
+/**
+ * Triggers when a POST request is sent to the Web App URL.
+ * @param {Object} e - POST request event object.
+ * @return {TextOutput} JSON response indicating success or failure.
+ */
+function doPost(e) {
+  // Use a script lock to prevent overwrite conflicts when multiple users submit simultaneously.
+  const lock = LockService.getScriptLock();
+  
+  try {
+    // Attempt to acquire lock for 30 seconds (30000ms)
+    if (lock.tryLock(30000)) {
+      return processData(e);
+    } else {
+      return createJsonResponse("error", "Lock timeout: Could not acquire write lock within 30 seconds.");
+    }
+  } catch (error) {
+    return createJsonResponse("error", "System Error: " + error.toString());
+  } finally {
+    // Always release lock so other requests can be processed.
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Main logic to parse CSV data and append it to the spreadsheet.
+ * @param {Object} e - Event object.
+ */
+function processData(e) {
+  // Validate if received data exists
+  if (!e || !e.postData || !e.postData.contents) {
+    return createJsonResponse("error", "Invalid Request: Request body is empty.");
+  }
+
+  const rawContent = e.postData.contents;
+  let csvString = "";
+
+  // Support both JSON wrapped format and raw text format.
+  try {
+    const parsedJson = JSON.parse(rawContent);
+    csvString = parsedJson.csv || parsedJson.data || parsedJson.filedata || rawContent;
+  } catch (jsonError) {
+    // If it cannot be parsed as JSON, treat the raw content as CSV text.
+    csvString = rawContent;
+  }
+
+  // Validate if extracted CSV is empty
+  if (!csvString || csvString.trim() === "") {
+    return createJsonResponse("error", "Invalid CSV: Extracted CSV data is empty.");
+  }
+
+  // Remove UTF-8 BOM (Byte Order Mark) if present.
+  // BOM causes "Utilities.parseCsv" to fail or misidentify the very first header name.
+  const UTF8_BOM = "\uFEFF";
+  if (csvString.startsWith(UTF8_BOM) || csvString.charCodeAt(0) === 0xFEFF) {
+    csvString = csvString.substring(1);
+  }
+
+  // Convert CSV string into a 2D array.
+  let parsedRows;
+  try {
+    parsedRows = Utilities.parseCsv(csvString);
+  } catch (csvError) {
+    return createJsonResponse("error", "Parsing Error: Failed to parse CSV. Error detail: " + csvError.toString());
+  }
+
+  if (parsedRows.length === 0) {
+    return createJsonResponse("error", "Empty Dataset: No rows detected in CSV.");
+  }
+
+  // Open the spreadsheet
+  let spreadsheet;
+  if (SPREADSHEET_ID && SPREADSHEET_ID !== "") {
+    spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  } else {
+    spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  }
+  
+  // Get destination sheet or create it if not found
+  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(SHEET_NAME);
+  }
+
+  const lastRow = sheet.getLastRow();
+  
+  if (lastRow > 0) {
+    // If spreadsheet is not empty, skip the first row (header row) of the incoming CSV.
+    parsedRows.shift();
+  }
+
+  // Append data only if there are valid rows to write
+  if (parsedRows.length > 0) {
+    const startRow = sheet.getLastRow() + 1;
+    const startColumn = 1;
+    const numRows = parsedRows.length;
+    const numCols = parsedRows[0].length;
+    
+    // Perform bulk write for high performance
+    sheet.getRange(startRow, startColumn, numRows, numCols).setValues(parsedRows);
+    return createJsonResponse("success", numRows + " rows successfully appended.");
+  } else {
+    return createJsonResponse("success", "No new rows to append. Only headers were received and skipped.");
+  }
+}
+
+/**
+ * Utility to format response to prevent CORS issues on the client-side (jsPsych).
+ * Returns JSON content with plain text MimeType.
+ */
+function createJsonResponse(status, message) {
+  const responseData = {
+    status: status,
+    message: message,
+    timestamp: new Date().toISOString()
+  };
+  
+  return ContentService.createTextOutput(JSON.stringify(responseData))
+    .setMimeType(ContentService.MimeType.JSON);
+}
