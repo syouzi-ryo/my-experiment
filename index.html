@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>尚絅学院大学 庄司亮太の心理学実験室</title>
+    <style>
+        :root {
+            --primary-navy: #2c3e50;
+            --light-navy: #34495e;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --accent-color: #5d6d7e;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--primary-navy);
+            color: #fff;
+            padding: 3rem 1rem;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+            font-weight: 300;
+            letter-spacing: 0.05em;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .intro {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: var(--light-navy);
+        }
+
+        .experiment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: var(--primary-navy);
+            font-size: 1.25rem;
+        }
+
+        .card p {
+            flex-grow: 1;
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: var(--primary-navy);
+            color: #fff;
+            padding: 0.8rem 1.5rem;
+            text-decoration: none;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            margin-top: 1rem;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-color);
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 1rem;
+            font-size: 0.8rem;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>尚絅学院大学 庄司亮太の心理学実験室</h1>
+    </header>
+
+    <div class="container">
+        <section class="intro">
+            <p>ご訪問ありがとうございます。以下の実験へのご協力をお願いいたします。<br>
+            各実験は数分で終わります。スマートフォンからも参加可能です。</p>
+        </section>
+
+        <main class="experiment-grid">
+            <!-- 実験0 -->
+            <article class="card">
+                <h2>実験0：はじめてのWebページ</h2>
+                <p>第2回で作成した記念すべき「Hello World」のページです。</p>
+                <a href="hello_world.html" class="btn">Hello Worldを見る</a>
+            </article>
+
+            <!-- 実験1 -->
+            <article class="card">
+                <h2>実験1：ストループ課題</h2>
+                <p>「文字の意味」と「文字の色」の干渉を調べる、簡単なキーボード入力のテストです。（所要時間：約3分）</p>
+                <a href="stroop.html" class="btn">実験1に参加する</a>
+            </article>
+
+            <!-- 実験2 -->
+            <article class="card">
+                <h2>実験2：ミュラー・リヤー錯視</h2>
+                <p>図形の長さが違って見える錯覚を測る、スライダーを使った視覚のテストです。（所要時間：約2分）</p>
+                <a href="muller_lyer_final.html" class="btn">実験2に参加する</a>
+            </article>
+        </main>
+    </div>
+
+    <footer>
+        &copy; 2026 尚絅学院大学 庄司亮太研究室
+    </footer>
+
+</body>
+</html>
