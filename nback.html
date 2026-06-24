@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1-Back & 2-Back ワーキングメモリ実験</title>
+    <script src="https://unpkg.com/jspsych@7.3.4"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-survey-text@1.1.3"></script>
+    <link href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css" rel="stylesheet" type="text/css">
+    <style>
+        body { font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; line-height: 1.6; }
+        .jspsych-content { max-width: 800px; }
+        .instruction-text { font-size: 1.2rem; margin-bottom: 20px; text-align: left; }
+        .stimulus { font-size: 80px; font-weight: bold; height: 100px; }
+        .guide { color: #666; font-size: 0.9rem; margin-bottom: 10px; }
+        .jspsych-btn { padding: 15px 30px !important; font-size: 1.1rem !important; margin: 10px !important; min-width: 120px; }
+        table { border-collapse: collapse; width: 100%; font-size: 0.8rem; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+        th { background-color: #f4f4f4; }
+    </style>
+</head>
+<body></body>
+<script>
+    // GAS送信用の定数
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbz7r9c_wMDNQ68l3V_f460fiAThfPIUdDIzlQBOSN5ZlhLHmJ9GhesS0KPrED5pU_BR/exec';
+
+    const jsPsych = initJsPsych({
+        on_finish: async () => {
+            const display = jsPsych.getDisplayElement();
+            display.innerHTML = "<div class='instruction-text'>データを送信中です...</div>";
+
+            // データの抽出 (conditionがある試行のみ)
+            const allData = jsPsych.data.get().filterCustom(d => d.condition !== undefined).values();
+            const payload = JSON.stringify(allData);
+
+            try {
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    cache: 'no-cache',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload
+                });
+            } catch (e) {
+                console.error("送信エラー:", e);
+            }
+
+            // 結果表の生成
+            let table = "<h2>実験終了。ご協力ありがとうございました。</h2>";
+            table += "<table><tr><th>条件</th><th>試行</th><th>文字</th><th>正解条件</th><th>回答</th><th>正誤</th><th>RT(ms)</th></tr>";
+            allData.forEach(d => {
+                table += `<tr><td>${d.condition}</td><td>${d.trial_index}</td><td>${d.stimulus}</td><td>${d.target_type}</td><td>${d.participant_response}</td><td>${d.correct ? '○' : '×'}</td><td>${Math.round(d.rt)}</td></tr>`;
+            });
+            display.innerHTML = table + "<br><p>ブラウザを閉じて終了してください。</p>";
+        }
+    });
+
+    function generateSequence(n, trials = 20, target_count = 6) {
+        const letters = ['A', 'B', 'C', 'D', 'E'];
+        let seq = [];
+        for (let i = 0; i < n; i++) seq.push(letters[Math.floor(Math.random() * letters.length)]);
+        let remaining_targets = target_count;
+        let remaining_trials = trials - n;
+        for (let i = 0; i < remaining_trials; i++) {
+            if (remaining_targets > 0 && (remaining_targets / (remaining_trials - i) > Math.random())) {
+                seq.push(seq[seq.length - n]);
+                remaining_targets--;
+            } else {
+                let options = letters.filter(l => l !== seq[seq.length - n]);
+                seq.push(options[Math.floor(Math.random() * options.length)]);
+            }
+        }
+        return seq;
+    }
+
+    const timeline = [];
+    timeline.push({
+        type: jsPsychSurveyText,
+        questions: [{ prompt: "参加者IDを入力してください", name: 'participant_id', required: true }],
+        on_finish: (data) => { jsPsych.data.addProperties({ participant_id: data.response.participant_id }); }
+    });
+
+    timeline.push({
+        type: jsPsychHtmlButtonResponse,
+        stimulus: "<div class='instruction-text'>「1-Back課題」を開始します。<br>直前に表示された文字と同じなら「同じ」、違えば「違う」を選択してください。</div>",
+        choices: ['開始する']
+    });
+
+    const seq1 = generateSequence(1);
+    seq1.forEach((char, index) => {
+        timeline.push({
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `<div class='guide'>1-Back | F:同じ J:違う</div><div class='stimulus'>${char}</div>`,
+            choices: ['同じ', '違う'],
+            stimulus_duration: 500,
+            response_ends_trial: false,
+            trial_duration: 2000,
+            data: { condition: '1-back', trial_index: index + 1, stimulus: char, target_type: index >= 1 ? (char === seq1[index-1] ? '同じ' : '違う') : 'N/A' },
+            on_finish: (data) => {
+                const ans = data.response === 0 ? '同じ' : '違う';
+                data.participant_response = ans;
+                data.correct = (data.target_type === ans);
+            }
+        });
+    });
+
+    timeline.push({
+        type: jsPsychHtmlButtonResponse,
+        stimulus: "<div class='instruction-text'>前半終了です。ここからは「2-Back課題」です。<br>今表示されている文字が『2つ前』に出た文字と同じなら「同じ」、違えば「違う」を選択してください。</div>",
+        choices: ['2-Backを開始']
+    });
+
+    const seq2 = generateSequence(2);
+    seq2.forEach((char, index) => {
+        timeline.push({
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `<div class='guide'>2-Back | F:同じ J:違う</div><div class='stimulus'>${char}</div>`,
+            choices: ['同じ', '違う'],
+            stimulus_duration: 500,
+            response_ends_trial: false,
+            trial_duration: 2000,
+            data: { condition: '2-back', trial_index: index + 1, stimulus: char, target_type: index >= 2 ? (char === seq2[index-2] ? '同じ' : '違う') : 'N/A' },
+            on_finish: (data) => {
+                const ans = data.response === 0 ? '同じ' : '違う';
+                data.participant_response = ans;
+                data.correct = (data.target_type === ans);
+            }
+        });
+    });
+
+    jsPsych.run(timeline);
+</script>
+</html>
