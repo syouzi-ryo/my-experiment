@@ -1,136 +1,131 @@
-/**
- * jsPsych CSV Data Saver via Google Apps Script (English/ASCII Code Version)
- * 
- * This script parses CSV data sent from jsPsych and appends it to Google Sheets.
- * All internal messages, comments, and logs are written in plain English to avoid
- * encoding errors during deployment, while keeping full capability of saving multilingual text.
- */
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ミュラー・リヤー錯視実験</title>
+    <script src="https://unpkg.com/jspsych@7.3.4"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-canvas-keyboard-response@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-survey-text@1.1.3"></script>
+    <link href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css" rel="stylesheet" type="text/css">
+    <style>
+        body { background-color: #f0f0f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .jspsych-content { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+<script>
+    const jsPsych = initJsPsych({
+        on_finish: function(data) {
+            const display = jsPsych.getDisplayElement();
+            display.innerHTML = '<p>データを送信中です...</p>';
 
-// --- Configuration Area ---
-// If you want to use a specific spreadsheet, enter its ID below.
-// If left empty (""), the sheet bound to this script will be used.
-const SPREADSHEET_ID = "1e33xKXrgxG4xRUodl1GVRvznjCO2JIWlRh3bnYANR2Y"; 
-// Name of the destination sheet
-const SHEET_NAME = "Sheet1"; 
-// --------------------------
+            const filteredData = jsPsych.data.get().filter({trial_type: 'canvas-keyboard-response'}).values().map(d => ({
+                subject_id: jsPsych.data.get().values()[0].subject_id,
+                timestamp: d.time_elapsed,
+                angle: d.angle,
+                wing_length: d.finLen,
+                standard_len: 200,
+                pse: d.variable_length,
+                error_amount: d.variable_length - 200
+            }));
 
-/**
- * Triggers when a POST request is sent to the Web App URL.
- * @param {Object} e - POST request event object.
- * @return {TextOutput} JSON response indicating success or failure.
- */
-function doPost(e) {
-  // Use a script lock to prevent overwrite conflicts when multiple users submit simultaneously.
-  const lock = LockService.getScriptLock();
-  
-  try {
-    // Attempt to acquire lock for 30 seconds (30000ms)
-    if (lock.tryLock(30000)) {
-      return processData(e);
-    } else {
-      return createJsonResponse("error", "Lock timeout: Could not acquire write lock within 30 seconds.");
+            fetch('https://script.google.com/macros/s/AKfycbynST9hzG-08n7HKgACToKRR-De_5HUcVoKgozlcXBKWnFefSSY5MQQfR2rH44Ljf4K/exec', {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(filteredData)
+            }).then(() => {
+                display.innerHTML = '<p>実験終了。ご協力ありがとうございました。</p>';
+            });
+        }
+    });
+
+    const trials = [];
+    const angles = [15, 75];
+    const finLengths = [20, 50];
+    const baseLength = 200;
+
+    // 1. 参加者ID入力
+    trials.push({
+        type: jsPsychSurveyText,
+        questions: [{prompt: "参加者IDを入力してください", required: true, name: 'subject_id'}]
+    });
+
+    // 2. 実験パラメータ準備
+    let combinations = [];
+    angles.forEach(a => finLengths.forEach(f => {
+        for(let i=0; i<3; i++) combinations.push({angle: a, finLen: f});
+    }));
+    combinations = jsPsych.randomization.shuffle(combinations);
+
+    trials.push({
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: "<p>ミュラー・リヤー錯視実験</p><p>矢印キー（左右）で下の図形の長さを調整してください。</p><p>スペースキーで決定します。</p><p>何かキーを押すと開始します。</p>"
+    });
+
+    // 3. 試行生成
+    combinations.forEach((cond, index) => {
+        trials.push({
+            type: jsPsychCanvasKeyboardResponse,
+            prompt: `<p>試行 ${index + 1} / 12</p><p>左右キーで調整、スペースで決定</p>`,
+            choices: [' '],
+            canvas_size: [400, 600],
+            data: { angle: cond.angle, finLen: cond.finLen, variable_length: Math.floor(Math.random() * 200) + 100 },
+            variable_length: Math.floor(Math.random() * 200) + 100,
+
+            stimulus: function(c) {
+                const ctx = c.getContext('2d');
+                const vLen = jsPsych.getCurrentTrial().variable_length;
+                ctx.clearRect(0, 0, 600, 400);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'black';
+                drawMullerLyer(ctx, 300, 150, baseLength, cond.angle, cond.finLen, true);
+                drawMullerLyer(ctx, 300, 250, vLen, cond.angle, cond.finLen, false);
+            },
+
+            on_load: function() {
+                const trial = jsPsych.getCurrentTrial();
+                window.addEventListener('keydown', function handleKey(e) {
+                    if (e.key === 'ArrowLeft') trial.variable_length -= 2;
+                    if (e.key === 'ArrowRight') trial.variable_length += 2;
+                    const canvas = document.querySelector('canvas');
+                    if(canvas) {
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, 600, 400);
+                        drawMullerLyer(ctx, 300, 150, baseLength, trial.data.angle, trial.data.finLen, true);
+                        drawMullerLyer(ctx, 300, 250, trial.variable_length, trial.data.angle, trial.data.finLen, false);
+                    }
+                });
+            },
+            on_finish: function(data) {
+                data.variable_length = jsPsych.getCurrentTrial().variable_length;
+            }
+        });
+    });
+
+    function drawMullerLyer(ctx, centerX, y, length, angleDeg, finLen, isInner) {
+        const rad = (angleDeg * Math.PI) / 180;
+        const x1 = centerX - length / 2;
+        const x2 = centerX + length / 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y);
+        ctx.lineTo(x2, y);
+        ctx.stroke();
+        const dir = isInner ? 1 : -1;
+        ctx.beginPath();
+        ctx.moveTo(x1, y);
+        ctx.lineTo(x1 + finLen * Math.cos(rad), y - finLen * Math.sin(rad) * dir);
+        ctx.moveTo(x1, y);
+        ctx.lineTo(x1 + finLen * Math.cos(rad), y + finLen * Math.sin(rad) * dir);
+        ctx.moveTo(x2, y);
+        ctx.lineTo(x2 - finLen * Math.cos(rad), y - finLen * Math.sin(rad) * dir);
+        ctx.moveTo(x2, y);
+        ctx.lineTo(x2 - finLen * Math.cos(rad), y + finLen * Math.sin(rad) * dir);
+        ctx.stroke();
     }
-  } catch (error) {
-    return createJsonResponse("error", "System Error: " + error.toString());
-  } finally {
-    // Always release lock so other requests can be processed.
-    lock.releaseLock();
-  }
-}
 
-/**
- * Main logic to parse CSV data and append it to the spreadsheet.
- * @param {Object} e - Event object.
- */
-function processData(e) {
-  // Validate if received data exists
-  if (!e || !e.postData || !e.postData.contents) {
-    return createJsonResponse("error", "Invalid Request: Request body is empty.");
-  }
-
-  const rawContent = e.postData.contents;
-  let csvString = "";
-
-  // Support both JSON wrapped format and raw text format.
-  try {
-    const parsedJson = JSON.parse(rawContent);
-    csvString = parsedJson.csv || parsedJson.data || parsedJson.filedata || rawContent;
-  } catch (jsonError) {
-    // If it cannot be parsed as JSON, treat the raw content as CSV text.
-    csvString = rawContent;
-  }
-
-  // Validate if extracted CSV is empty
-  if (!csvString || csvString.trim() === "") {
-    return createJsonResponse("error", "Invalid CSV: Extracted CSV data is empty.");
-  }
-
-  // Remove UTF-8 BOM (Byte Order Mark) if present.
-  // BOM causes "Utilities.parseCsv" to fail or misidentify the very first header name.
-  const UTF8_BOM = "\uFEFF";
-  if (csvString.startsWith(UTF8_BOM) || csvString.charCodeAt(0) === 0xFEFF) {
-    csvString = csvString.substring(1);
-  }
-
-  // Convert CSV string into a 2D array.
-  let parsedRows;
-  try {
-    parsedRows = Utilities.parseCsv(csvString);
-  } catch (csvError) {
-    return createJsonResponse("error", "Parsing Error: Failed to parse CSV. Error detail: " + csvError.toString());
-  }
-
-  if (parsedRows.length === 0) {
-    return createJsonResponse("error", "Empty Dataset: No rows detected in CSV.");
-  }
-
-  // Open the spreadsheet
-  let spreadsheet;
-  if (SPREADSHEET_ID && SPREADSHEET_ID !== "") {
-    spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-  } else {
-    spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  }
-  
-  // Get destination sheet or create it if not found
-  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    sheet = spreadsheet.insertSheet(SHEET_NAME);
-  }
-
-  const lastRow = sheet.getLastRow();
-  
-  if (lastRow > 0) {
-    // If spreadsheet is not empty, skip the first row (header row) of the incoming CSV.
-    parsedRows.shift();
-  }
-
-  // Append data only if there are valid rows to write
-  if (parsedRows.length > 0) {
-    const startRow = sheet.getLastRow() + 1;
-    const startColumn = 1;
-    const numRows = parsedRows.length;
-    const numCols = parsedRows[0].length;
-    
-    // Perform bulk write for high performance
-    sheet.getRange(startRow, startColumn, numRows, numCols).setValues(parsedRows);
-    return createJsonResponse("success", numRows + " rows successfully appended.");
-  } else {
-    return createJsonResponse("success", "No new rows to append. Only headers were received and skipped.");
-  }
-}
-
-/**
- * Utility to format response to prevent CORS issues on the client-side (jsPsych).
- * Returns JSON content with plain text MimeType.
- */
-function createJsonResponse(status, message) {
-  const responseData = {
-    status: status,
-    message: message,
-    timestamp: new Date().toISOString()
-  };
-  
-  return ContentService.createTextOutput(JSON.stringify(responseData))
-    .setMimeType(ContentService.MimeType.JSON);
-}
+    jsPsych.run(trials);
+</script>
+</body>
+</html>
