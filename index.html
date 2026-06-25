@@ -64,11 +64,6 @@
             flex-direction: column;
         }
 
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-        }
-
         .card h2 {
             margin-top: 0;
             color: var(--primary-navy);
@@ -79,24 +74,51 @@
             flex-grow: 1;
             color: #666;
             font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
         }
 
         .btn {
-            display: inline-block;
-            background-color: var(--primary-navy);
-            color: #fff;
-            padding: 0.8rem 1.5rem;
+            display: block;
             text-decoration: none;
+            padding: 0.8rem 1rem;
             border-radius: 6px;
             text-align: center;
             font-weight: bold;
-            margin-top: 1rem;
-            transition: background 0.2s;
+            font-size: 0.9rem;
+            transition: all 0.2s;
         }
 
-        .btn:hover {
-            background-color: var(--accent-color);
+        /* メインアクション：実験参加 */
+        .btn-primary {
+            background-color: var(--primary-navy);
+            color: #fff;
         }
+        .btn-primary:hover { background-color: var(--accent-color); }
+
+        /* セカンダリーアクション：プレレジ */
+        .btn-outline {
+            border: 2px solid var(--primary-navy);
+            color: var(--primary-navy);
+            background-color: transparent;
+        }
+        .btn-outline:hover {
+            background-color: var(--primary-navy);
+            color: #fff;
+        }
+
+        /* 控えめなリンク：履歴 */
+        .btn-text {
+            color: #7f8c8d;
+            font-size: 0.8rem;
+            text-decoration: underline;
+        }
+        .btn-text:hover { color: var(--primary-navy); }
 
         footer {
             text-align: center;
@@ -119,25 +141,30 @@
         </section>
 
         <main class="experiment-grid">
-            <!-- 実験0 -->
             <article class="card">
                 <h2>実験0：はじめてのWebページ</h2>
                 <p>第2回で作成した記念すべき「Hello World」のページです。</p>
-                <a href="hello_world.html" class="btn">Hello Worldを見る</a>
+                <div class="btn-group">
+                    <a href="hello_world.html" class="btn btn-primary">Hello Worldを見る</a>
+                </div>
             </article>
 
-            <!-- 実験1 -->
             <article class="card">
                 <h2>実験1：ストループ課題</h2>
                 <p>「文字の意味」と「文字の色」の干渉を調べる、簡単なキーボード入力のテストです。（所要時間：約3分）</p>
-                <a href="stroop.html" class="btn">実験1に参加する</a>
+                <div class="btn-group">
+                    <a href="stroop.html" class="btn btn-primary">実験1に参加する</a>
+                </div>
             </article>
 
-            <!-- 実験2 -->
             <article class="card">
                 <h2>実験2：ミュラー・リヤー錯視</h2>
                 <p>図形の長さが違って見える錯覚を測る、スライダーを使った視覚のテストです。（所要時間：約2分）</p>
-                <a href="muller_lyer_final.html" class="btn">実験2に参加する</a>
+                <div class="btn-group">
+                    <a href="muller_lyer_final.html" class="btn btn-primary">実験2に参加する</a>
+                    <a href="https://github.com/syouzi-ryo/my-experiment/blob/main/preregistration.md" class="btn btn-outline">プレレジを確認する</a>
+                    <a href="https://github.com/syouzi-ryo/my-experiment/blob/main/preregistration.md" class="btn btn-text">変更履歴（証拠）を確認する</a>
+                </div>
             </article>
         </main>
     </div>
